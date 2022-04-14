@@ -16,7 +16,7 @@ class TelegramServiceProvider extends ServiceProvider
     public function register()
     {
         $this->app->bind('telegram', function ($app){
-            return new Telegram(new Http(), config('bots.bot'));
+            return new Telegram(new Http());
         });
     }
 

@@ -14,7 +14,7 @@
             <!-- Image -->
             <div class="mt-2">
                 <x-label for="image" :value="__('Изображение')" />
-                <x-input id="image" type="file" accept="image/*" name="image"/>
+                <x-input id="image" type="file" accept="image/png, image/jpeg" name="image"/>
             </div>
 
             <!-- Message -->
@@ -25,7 +25,7 @@
 
             <!-- DateTime -->
             <div class="mt-2">
-                <x-label for="sendingDate" :value="__('Дата и время отправки')" />
+                <x-label for="sendingDate">Дата и время отправки <br/>(По гринвичу - нулевой часовой пояс)</x-label>
 
                 <x-input id="sendingDate" class="block mt-1 w-full" type="datetime-local" name="sendingDate"/>
             </div>

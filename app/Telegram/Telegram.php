@@ -3,10 +3,14 @@
 
 namespace App\Telegram;
 
+use App\Models\Settings;
 use App\Telegram\Handlers\MyUpdateHandler;
+use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 
 class Telegram
 {
@@ -16,28 +20,23 @@ class Telegram
     protected $API_URL;
 
     /**
-     * @var Current_HTTP
+     * @var HTTP
      */
     protected $http;
-    /**
-     * @var Current_bot
-     */
-    protected $bot;
 
     /**
      * Telegram constructor.
      * @param $http
-     * @param $bot
      */
-    public function __construct($http, $bot)
+    public function __construct($http)
     {
-        $this->API_URL = env('TELEGRAM_API_URL','');
+        $this->API_URL = config('bots.API','');
         $this->http=$http;
-        $this->bot=$bot;
     }
 
-    public function changeBotInfo($request) {
+    /*public function changeBotInfo($token,$username) {
         try{
+
             if(Arr::exists($request,'token')) {
                 Config::set('bots.bot.token',$request['token']);
             }
@@ -54,14 +53,15 @@ class Telegram
             return true;
         }
         catch (\Exception $e){ return $e->getMessage(); }
-    }
+    }*/
 
     /**
      * Get url for webhook
      * @return string
      */
     private function getUrl(){
-        return $this->API_URL.$this->bot['token'].'/';
+        $settings = Settings::first();
+        return $this->API_URL.$settings->token.'/';
     }
 
     /**
@@ -70,16 +70,18 @@ class Telegram
      * @return mixed
      */
     public function setWebHook($url, $controller = '/api/handleUpdate') {
-        $result = $this->http::post(self::getUrl().'setWebhook',[
-            "url" => $url.$controller,
-            "allowed_updates"=>["message","callback_query","inline_query"]
-        ]);
-        logger($result);
-        logger($url.$controller);
-        if($result['ok']) return "{$result['result']} - {$result['description']}";
-        else return "{$result['error_code']} - {$result['description']}";
-        return $result;
-
+        try{
+            logger($url.$controller);
+            $result = $this->http::post(self::getUrl().'setWebhook',[
+                "url" => $url.$controller,
+                "allowed_updates"=>["message","callback_query","inline_query"]
+            ]);
+            logger($result);
+            return $result['ok'];
+        }
+        catch(\Exception) {
+            return false;
+        }
     }
 
     /**
@@ -88,7 +90,6 @@ class Telegram
      */
     public function deleteWebHook(){
         $result = $this->http::get(self::getUrl().'deleteWebhook');
-        logger($result);
         if($result['ok']) return "{$result['result']} - {$result['description']}";
         else return "{$result['error_code']} - {$result['description']}";
     }
@@ -103,11 +104,11 @@ class Telegram
 
     /**
      * Getting updates with long polling. Works only if webhook was removed.
-     * @return array
+     * @return \Illuminate\Http\Client\Response
      */
     public function getUpdates(){
         $result = $this->http::get(self::getUrl().'getUpdates');
-        return $result['result'];
+        return $result;
     }
 
     /**
@@ -119,10 +120,8 @@ class Telegram
      */
     public function sendMessage($chatId, $message, $keyboard = null) {
         $params = [ 'chat_id'=>$chatId, 'text'=>$message, 'parse_mode'=> 'HTML' ];
-        logger($keyboard);
         if($keyboard != null) $params = Arr::add($params,'reply_markup',$keyboard);
         $result = $this->http::post(self::getUrl().'sendMessage',$params);
-        logger($result);
         return $result;
     }
 
@@ -137,7 +136,6 @@ class Telegram
             'callback_query_id'=>$id,
             'cache_time'=>$cache_time,
         ]);
-        logger($result);
         return $result;
     }
 
@@ -149,19 +147,24 @@ class Telegram
      * @return mixed
      */
     public function sendImage($chatId, $image, $message = null){
-        logger($image);
-        $params = [ 'chat_id'=>$chatId, 'photo'=>$image, ];
-        if($message != null) {
-            $params = Arr::add($params,'caption',$message);
-            $params = Arr::add($params,'parse_mode','HTML');
-            logger($params);
+        $name = basename(Storage::path($image));
+
+        $photo = fopen(Storage::path($image),'r');
+        $params = [
+            'chat_id'=>$chatId,
+            'caption'=>$message,
+            'parse_mode'=>'HTML'
+        ];
+
+        $result = $this->http::attach('photo',$photo,$name)
+            ->post(self::getUrl().'sendPhoto',$params);
+
+        if($result['ok']) {
+            return Arr::get($result,'photo.0.file_id');
         }
-        logger($params);
-        $result = $this->http::post(self::getUrl().'sendPhoto',$params);
-        logger($result);
-        if($result['ok']) return "{$result['result']} - {$result['description']}";
-        else return "{$result['error_code']} - {$result['description']}";
-        //TODO: Сделать корректный выбор файла
+        else {
+            return "{$result['error_code']} - {$result['description']}";
+        }
     }
 
     /**

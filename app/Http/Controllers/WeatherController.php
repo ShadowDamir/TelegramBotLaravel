@@ -9,12 +9,11 @@ class WeatherController extends Controller
 {
     public static function getWeatherInCity($city){
         try{
-            $result = Http::get(env('WEATHER_API_URL','').'weather',[
+            $result = Http::get(config('bots.weather_api').'weather',[
                 "q" => $city,
-                "appid"=>env('WEATHER_API_TOKEN',''),
+                "appid"=>config('bots.weather_token'),
                 "units"=>"metric"
             ]);
-            logger($result);
             return $result;
         }
         catch (\Exception) {return null;}

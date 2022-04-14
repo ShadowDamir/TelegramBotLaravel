@@ -64,7 +64,6 @@ class MyUpdateHandler
             case 'Текущая температура воздуха МСК':
                 try{
                     $result = WeatherController::getWeatherInCity("Moscow");
-                    logger($result);
                     $temp = Round(Arr::get($result,"main.temp")); $temp = $temp > 0 ? '+'.$temp : $temp;
                     $feelsTemp = Round(Arr::get($result,"main.feels_like")); $feelsTemp = $feelsTemp > 0 ? '+'.$feelsTemp : $feelsTemp;
                     Telegram::sendMessage($user->userId,"Температура в градусах по Цельсия в <b>Москве</b> - <b>{$temp}°</b>.\n"
@@ -109,7 +108,6 @@ class MyUpdateHandler
         $userId = Str::of($callBack['data'])->before('|');
         $username = Str::of($callBack['data'])->after('|');
         $date = Telegram_user::find($userId)->first()->created_at;
-        logger("$userId | $username");
 
         $text = "<u><b>$username</b></u> первый раз взаимодействовал со мной <u><b>{$date->format('d.m.Y')}</b></u>";
         Telegram::sendMessage($user->userId, $text);

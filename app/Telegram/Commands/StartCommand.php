@@ -2,7 +2,9 @@
 namespace App\Telegram\Commands;
 
 use App\Facades\Telegram;
+use App\Models\Settings;
 use App\Models\Telegram_user;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class StartCommand
@@ -18,6 +20,8 @@ class StartCommand
         $replyKeyboard = [
             'keyboard' => $keyboard,
             'resize_keyboard' => true];
-        $result = Telegram::sendMessage($user->userId, "Приветствую вас, $username!\nМои функции представлены на клавиатуре ниже.", $replyKeyboard);
+        $settings = Settings::first();
+        $text = $settings->startMessage ?? "Приветствую вас, $username!\nМои функции представлены на клавиатуре ниже.";
+        $result = Telegram::sendMessage($user->userId, $text, $replyKeyboard);
     }
 }

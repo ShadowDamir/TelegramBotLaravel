@@ -5,44 +5,33 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\{Facades\Telegram,
     Models\Distribution,
-    Models\File,
+    Models\File as FileModel,
     Models\Telegram_user,
-    Telegram\Handlers\MyUpdateHandler,
-    Telegram\Commands as Commands};
+    Telegram\Handlers\MyUpdateHandler};
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 class TelegramController extends Controller
 {
+    /**
+     * function for start sending distributions
+     */
     public static function Distribution() {
         $distributions = Distribution::where('isSended',0)->where('sendingDate','<=',now())->get();
         if(count($distributions)>0){
             $users = Telegram_user::where('isBanned', 0)->get();
-            logger('users - '.$users);
             foreach ($distributions as $distribution){
                 $fileId = -1;
                 foreach ($users as $user){
                     if($distribution->image != null) {
-                        $file = File::find($distribution->image)->first();
+                        $file = FileModel::find($distribution->image)->first();
                         $path = storage_path($file->file_path);
-                        logger($file->file_path);
-
-                        //TODO: Сделать получние файла по пути к нему (пока не получается)
-                        $file = Storage::get($file->file_path);
-                        logger('file2 - '.$file);
-                        $result = Telegram::sendImage($user->userId, $file, $distribution->messageText);
-                        //if($result && $fileId = -1) $fileId = $result....
+                        $result = Telegram::sendImage($user->userId, $file->file_path, $distribution->messageText);
                     }
-                    else {
-                        logger('message - '.$distribution);
-                        if(Telegram::sendMessage($user->userId, $distribution->messageText)){
-                            $distribution->isSended = true;
-                            $distribution->save();
-                        }
-                    }
+                    else { Telegram::sendMessage($user->userId, $distribution->messageText); }
                 }
+                $distribution->isSended = true;
+                $distribution->save();
             }
         }
     }
@@ -54,7 +43,9 @@ class TelegramController extends Controller
      * @return mixed string/boolean
      */
     public function changeBotInfo(Request $request) {
-        return Telegram_user::changeBotInfo($request);
+        $result = Telegram_user::changeBotInfo($request);
+        if($result['ok'] == false) return back()->withErrors('Не удалось сменить данные бота');
+        return back();
     }
 
     /**
@@ -62,8 +53,9 @@ class TelegramController extends Controller
      */
     public function getUpdates(){
         $result = Telegram::getUpdates();
-        foreach ($result as $update){
-            $this->handleUpdate(handledUpdate: $update);
+        if(Arr::exists($result,'result') == false) return back();
+        foreach ($result['result'] as $update){
+            $this->handleUpdate(null,handledUpdate: $update);
         }
         return back();
     }
@@ -71,16 +63,20 @@ class TelegramController extends Controller
     /**
      * Set webhook for this bot
      */
-    public function setWebHook() {
-        $result = Telegram::setWebHook(Config::get('bots.bot.webHookURL'));
-        dd($result);
+    public function setWebHook(Request $request) {
+        $result = Telegram::setWebHook($request['webhookURL']);
+        if($result['ok'] == false) return back()->withErrors('Не удалось установить вебхук');
+        $this->setMyCommands();
+        return back();
     }
 
     /**
      * Remove webhook of this bot
      */
     public function deleteWebHook() {
-        dd(Telegram::deleteWebHook());
+        $result = Telegram::deleteWebHook();
+        if($result['ok'] == false) return back()->withErrors('Не удалось удалить вебхук');
+        return back();
     }
 
     /**
@@ -96,7 +92,8 @@ class TelegramController extends Controller
      */
     public function setMyCommands() {
         $result = Telegram::setCommands();
-        dd($result);
+        if($result['ok'] == false) return back()->withErrors('Не удалось установить комманды');
+        return back();
     }
 
     /**
@@ -104,15 +101,18 @@ class TelegramController extends Controller
      */
     public function deleteMyCommands() {
         $result = Telegram::deleteCommands();
-        dd($result);
+        if($result['ok'] == false) return back()->withErrors('Не удалось удалить комманды');
+        return back();
     }
 
     /**
      * Handle updates - commands, messages and callbacks
+     * @param Request $request request from telegram with update
+     * @param null $handledUpdate update from getUpdates
      */
-    public function handleUpdate(Request $request = null, $handledUpdate = null)
+    public function handleUpdate(Request $request, $handledUpdate = null)
     {
-        $update = $request?? $handledUpdate;
+        $update = $handledUpdate ?? $request;
         $user = Telegram_user::getOrCreate($update);
         if($user->isBanned) { return; }
         if (Arr::exists($update, 'message')) {

@@ -29,6 +29,5 @@ class SendDistributions extends Command
     public function handle()
     {
         $result = TelegramController::Distribution();
-        logger('schedule of sending message - '.$result);
     }
 }

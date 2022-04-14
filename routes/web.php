@@ -29,7 +29,8 @@ Route::post('/banUser', [UsersController::class, 'banUser'])->middleware(['auth'
 
 //TODO: Сделать настройки для смены токена и подключения вебхука
 Route::get('/settings', [SettingsController::class, 'create'])->middleware(['auth'])->name('settings');
-Route::post('/editSettings', [SettingsController::class, 'create'])->middleware(['auth']);
+Route::post('/editSettings', [SettingsController::class, 'editParams'])->middleware(['auth'])->name('editSettings');
+Route::post('/editWebHook', [SettingsController::class, 'editWebHook'])->middleware(['auth'])->name('editWebHook');
 
 Route::get('/login', [LoginController::class, 'create'])->name('login');
 Route::post('/login', [LoginController::class, 'authenticate']);

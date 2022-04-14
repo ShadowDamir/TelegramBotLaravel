@@ -10,7 +10,6 @@ class UsersController extends Controller
 {
     public function create() {
         $users = Telegram_user::all();
-        logger($users);
         return view('users.users',compact('users'));
     }
 
@@ -21,11 +20,9 @@ class UsersController extends Controller
     }
 
     public function banUser(Request $request){
-        logger($request);
         if(Arr::exists($request,'userId')) {
             $user = Telegram_user::find($request['userId']);
             $result = Telegram_user::banSwitch($user);
-            logger($result);
             return $this->createInfo($request['userId']);
         }
         else return $this->create();
